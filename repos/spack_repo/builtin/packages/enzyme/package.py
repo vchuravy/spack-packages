@@ -42,6 +42,12 @@ class Enzyme(CMakePackage):
     version("0.0.14", sha256="740641eeeeadaf47942ac88cc52e62ddc0e8c25767a501bed36ec241cf258b8d")
     version("0.0.13", sha256="d4a53964ec1f763772db2c56e6734269b7656c8b2ecd41fa7a41315bcd896b5a")
 
+    variant(
+        "fortran",
+        default=False,
+        description="Build the Fortran bindings (module enzyme, library EnzymeFortran)",
+    )
+
     depends_on("c", type="build")  # generated
     depends_on("cxx", type="build")  # generated
     depends_on("fortran", type="build")  # generated
@@ -54,11 +60,16 @@ class Enzyme(CMakePackage):
     depends_on("libllvm@11:19", when="@0.0.100:0.0.148")
     depends_on("libllvm@15:19", when="@0.0.149:0.0.185")
     depends_on("libllvm@15:20", when="@0.0.186:0.0.196")
-    depends_on("libllvm@15:21", when="@0.0.197:")
+    depends_on("libllvm@15:21", when="@0.0.197:0.0")
+    # main follows LLVM's main branch
+    depends_on("libllvm@15:", when="@main")
     depends_on("cmake@3.13:", type="build")
 
     def cmake_args(self):
-        args = ["-DLLVM_DIR=" + self.llvm_prefix + "/lib/cmake/llvm"]
+        args = [
+            "-DLLVM_DIR=" + self.llvm_prefix + "/lib/cmake/llvm",
+            self.define_from_variant("ENZYME_FORTRAN", "fortran"),
+        ]
         return args
 
     @property

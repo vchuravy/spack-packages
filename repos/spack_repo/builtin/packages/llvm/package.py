@@ -275,6 +275,8 @@ class Llvm(CMakePackage, CudaPackage, LlvmDetection, CompilerPackage):
 
     variant("utils", default=False, description="Install utility binaries (FileCheck, etc.)")
 
+    provides("libllvm@24", when="@24")
+    provides("libllvm@23", when="@23")
     provides("libllvm@22", when="@22")
     provides("libllvm@21", when="@21")
     provides("libllvm@20", when="@20")

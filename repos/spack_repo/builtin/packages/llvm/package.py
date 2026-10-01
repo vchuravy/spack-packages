@@ -118,6 +118,13 @@ class Llvm(CMakePackage, CudaPackage, LlvmDetection, CompilerPackage):
     variant("lld", default=True, description="Build the LLVM linker")
     variant("mlir", default=False, when="@10:", description="Build with MLIR support")
     variant(
+        "plugins",
+        default=False,
+        when="@15:",
+        description="Let the tools load pass plugins (LLVM_ENABLE_PLUGINS) and build clang "
+        "and flang with plugin support (CLANG_PLUGIN_SUPPORT, FLANG_PLUGIN_SUPPORT)",
+    )
+    variant(
         "libunwind",
         values=(
             "none",
@@ -1090,6 +1097,13 @@ class Llvm(CMakePackage, CudaPackage, LlvmDetection, CompilerPackage):
                 define("CMAKE_FIND_USE_SYSTEM_PATH", False),
             ]
         )
+
+        if spec.satisfies("+plugins"):
+            cmake_args.extend(
+                [define("LLVM_ENABLE_PLUGINS", True), define("CLANG_PLUGIN_SUPPORT", True)]
+            )
+            if spec.satisfies("+flang"):
+                cmake_args.append(define("FLANG_PLUGIN_SUPPORT", True))
 
         cmake_args.append(define("LLVM_TARGETS_TO_BUILD", get_llvm_targets_to_build(spec)))
 

@@ -16,9 +16,9 @@ class Enzyme(CMakePackage):
     """
 
     homepage = "https://enzyme.mit.edu"
-    url = "https://github.com/wsmoses/Enzyme/archive/v0.0.266.tar.gz"
-    list_url = "https://github.com/wsmoses/Enzyme/releases"
-    git = "https://github.com/wsmoses/Enzyme"
+    url = "https://github.com/EnzymeAD/Enzyme/archive/v0.0.266.tar.gz"
+    list_url = "https://github.com/EnzymeAD/Enzyme/releases"
+    git = "https://github.com/EnzymeAD/Enzyme"
 
     maintainers("wsmoses", "vchuravy", "tgymnich")
 
@@ -42,9 +42,19 @@ class Enzyme(CMakePackage):
     version("0.0.14", sha256="740641eeeeadaf47942ac88cc52e62ddc0e8c25767a501bed36ec241cf258b8d")
     version("0.0.13", sha256="d4a53964ec1f763772db2c56e6734269b7656c8b2ecd41fa7a41315bcd896b5a")
 
-    depends_on("c", type="build")  # generated
-    depends_on("cxx", type="build")  # generated
-    depends_on("fortran", type="build")  # generated
+    variant("fortran", default=False, description="Build the Fortran bindings (enzyme.mod)")
+    variant(
+        "flang",
+        default=False,
+        description="Build the flang plugin (FlangEnzyme) for -fpass-plugin in flang",
+    )
+
+    depends_on("c", type="build")
+    depends_on("cxx", type="build")
+    # The Fortran bindings are compiled with, and only readable by, the flang of the LLVM
+    # that Enzyme is built against.
+    depends_on("fortran", type="build", when="+fortran")
+    requires("%fortran=llvm", when="+fortran", msg="the Fortran bindings need LLVM flang")
 
     depends_on("libllvm@7:12", when="@0.0.13:0.0.15")
     depends_on("libllvm@7:14", when="@0.0.32:0.0.47")
@@ -54,11 +64,21 @@ class Enzyme(CMakePackage):
     depends_on("libllvm@11:19", when="@0.0.100:0.0.148")
     depends_on("libllvm@15:19", when="@0.0.149:0.0.185")
     depends_on("libllvm@15:20", when="@0.0.186:0.0.196")
-    depends_on("libllvm@15:21", when="@0.0.197:")
+    depends_on("libllvm@15:21", when="@0.0.197:0.0.266")
+    # main follows LLVM's main branch.
+    depends_on("libllvm@15:", when="@main")
+    depends_on("llvm+flang", when="+fortran ^[virtuals=libllvm] llvm")
+    depends_on("llvm+flang+plugins", when="+flang ^[virtuals=libllvm] llvm")
     depends_on("cmake@3.13:", type="build")
 
     def cmake_args(self):
-        args = ["-DLLVM_DIR=" + self.llvm_prefix + "/lib/cmake/llvm"]
+        args = [
+            self.define("LLVM_DIR", self.llvm_prefix + "/lib/cmake/llvm"),
+            self.define_from_variant("ENZYME_FORTRAN", "fortran"),
+            self.define_from_variant("ENZYME_FLANG", "flang"),
+        ]
+        if self.spec.satisfies("+fortran"):
+            args.append(self.define("CMAKE_Fortran_COMPILER", self.llvm_prefix + "/bin/flang"))
         return args
 
     @property
@@ -81,6 +101,8 @@ class Enzyme(CMakePackage):
         libs = ["LLVMEnzyme-{0}".format(ver), "ClangEnzyme-{0}".format(ver)]
         if self.version >= Version("0.0.32"):  # TODO actual lower bound
             libs.append("LLDEnzyme-{0}".format(ver))
+        if self.spec.satisfies("+flang"):
+            libs.append("FlangEnzyme-{0}".format(ver))
 
         return find_libraries(libs, root=self.prefix, recursive=True)
 
@@ -100,3 +122,11 @@ class Enzyme(CMakePackage):
         if self.version >= Version("0.0.32"):  # TODO actual lower bound
             lld = find_libraries("LLDEnzyme-{0}".format(ver), root=self.prefix, recursive=True)
             env.set("LLDENZYME", ";".join(lld))
+
+        if self.spec.satisfies("+flang"):
+            flang = find_libraries(
+                "FlangEnzyme-{0}".format(ver), root=self.prefix, recursive=True
+            )
+            env.set("FLANGENZYME", ";".join(flang))
+
+        env.set("ENZYME_PREFIX", self.prefix)

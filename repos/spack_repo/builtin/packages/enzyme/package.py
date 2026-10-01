@@ -49,6 +49,13 @@ class Enzyme(CMakePackage):
         description="Build the flang plugin (FlangEnzyme) for -fpass-plugin in flang",
     )
 
+    variant(
+        "flang_directives",
+        default=False,
+        description="Build the flang plugin for !DIR$ ENZYME directives and FIR type "
+        "annotations (FlangEnzymeDirectives), loaded with -Xflang -load",
+    )
+
     depends_on("c", type="build")
     depends_on("cxx", type="build")
     # The Fortran bindings are compiled with, and only readable by, the flang of the LLVM
@@ -69,6 +76,9 @@ class Enzyme(CMakePackage):
     depends_on("libllvm@15:", when="@main")
     depends_on("llvm+flang", when="+fortran ^[virtuals=libllvm] llvm")
     depends_on("llvm+flang+plugins", when="+flang ^[virtuals=libllvm] llvm")
+    depends_on(
+        "llvm+flang+mlir+plugins", when="+flang_directives ^[virtuals=libllvm] llvm"
+    )
     depends_on("cmake@3.13:", type="build")
 
     def cmake_args(self):
@@ -76,6 +86,7 @@ class Enzyme(CMakePackage):
             self.define("LLVM_DIR", self.llvm_prefix + "/lib/cmake/llvm"),
             self.define_from_variant("ENZYME_FORTRAN", "fortran"),
             self.define_from_variant("ENZYME_FLANG", "flang"),
+            self.define_from_variant("ENZYME_FLANG_DIRECTIVES", "flang_directives"),
         ]
         if self.spec.satisfies("+fortran"):
             args.append(self.define("CMAKE_Fortran_COMPILER", self.llvm_prefix + "/bin/flang"))
